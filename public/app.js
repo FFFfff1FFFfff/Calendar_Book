@@ -1,45 +1,36 @@
 (function () {
   "use strict";
 
-  // ---------------------------------------------------------------------------
-  // Read owner_id from URL  (?owner_id=xxx)
-  // ---------------------------------------------------------------------------
-  const params = new URLSearchParams(window.location.search);
-  const OWNER_ID = params.get("owner_id") || "";
+  // Read slug from URL path: /book/<slug>
+  var pathParts = window.location.pathname.split("/");
+  var SLUG = (pathParts[1] === "book" && pathParts[2]) ? pathParts[2] : "";
 
-  // ---------------------------------------------------------------------------
-  // DOM refs
-  // ---------------------------------------------------------------------------
-  const datePicker = document.getElementById("datePicker");
-  const stepSlots = document.getElementById("stepSlots");
-  const slotsGrid = document.getElementById("slotsGrid");
-  const slotsLoading = document.getElementById("slotsLoading");
-  const noSlots = document.getElementById("noSlots");
-  const stepForm = document.getElementById("stepForm");
-  const stepConfirm = document.getElementById("stepConfirm");
-  const bookBtn = document.getElementById("bookBtn");
-  const customerName = document.getElementById("customerName");
-  const customerEmail = document.getElementById("customerEmail");
-  const confirmDetails = document.getElementById("confirmDetails");
-  const errorMsg = document.getElementById("errorMsg");
-  const ownerInfo = document.getElementById("ownerInfo");
+  var datePicker = document.getElementById("datePicker");
+  var stepSlots = document.getElementById("stepSlots");
+  var slotsGrid = document.getElementById("slotsGrid");
+  var slotsLoading = document.getElementById("slotsLoading");
+  var noSlots = document.getElementById("noSlots");
+  var stepForm = document.getElementById("stepForm");
+  var stepConfirm = document.getElementById("stepConfirm");
+  var bookBtn = document.getElementById("bookBtn");
+  var customerName = document.getElementById("customerName");
+  var customerEmail = document.getElementById("customerEmail");
+  var confirmDetails = document.getElementById("confirmDetails");
+  var errorMsg = document.getElementById("errorMsg");
+  var ownerInfo = document.getElementById("ownerInfo");
 
-  let selectedSlot = null;
+  var selectedSlot = null;
 
-  // Warn if no owner_id in URL
-  if (!OWNER_ID) {
-    showError("Missing owner_id in URL. Use ?owner_id=YOUR_UUID");
+  if (!SLUG) {
+    showError("Invalid booking link.");
     datePicker.disabled = true;
+    return;
   }
 
-  // Set date picker min to today
-  const today = new Date();
+  var today = new Date();
   datePicker.min = formatDate(today);
   datePicker.value = formatDate(today);
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
   function formatDate(d) {
     return d.toISOString().split("T")[0];
   }
@@ -60,9 +51,6 @@
     errorMsg.classList.add("hidden");
   }
 
-  // ---------------------------------------------------------------------------
-  // Fetch available slots
-  // ---------------------------------------------------------------------------
   async function fetchSlots(date) {
     hideError();
     stepSlots.classList.remove("hidden");
@@ -75,14 +63,14 @@
     bookBtn.disabled = true;
 
     try {
-      const res = await fetch(
-        `/api/availability?owner_id=${encodeURIComponent(OWNER_ID)}&date=${date}`
+      var res = await fetch(
+        "/api/availability?slug=" + encodeURIComponent(SLUG) + "&date=" + date
       );
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Error ${res.status}`);
+        var body = await res.json().catch(function () { return {}; });
+        throw new Error(body.detail || "Error " + res.status);
       }
-      const data = await res.json();
+      var data = await res.json();
       slotsLoading.classList.add("hidden");
       if (data.owner_email && ownerInfo) {
         ownerInfo.textContent = "Booking with " + data.owner_email;
@@ -94,16 +82,12 @@
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Render slot buttons
-  // ---------------------------------------------------------------------------
   function renderSlots(slots) {
     slotsGrid.innerHTML = "";
     if (slots.length === 0) {
       noSlots.classList.remove("hidden");
       return;
     }
-
     slots.forEach(function (slot) {
       var btn = document.createElement("button");
       btn.className = "slot-btn";
@@ -121,9 +105,6 @@
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Book
-  // ---------------------------------------------------------------------------
   async function bookSlot() {
     hideError();
     if (!selectedSlot || !customerName.value.trim() || !customerEmail.value.trim()) {
@@ -139,19 +120,17 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          owner_id: OWNER_ID,
+          slug: SLUG,
           start_time: selectedSlot.start_time,
           end_time: selectedSlot.end_time,
           customer_name: customerName.value.trim(),
           customer_email: customerEmail.value.trim(),
         }),
       });
-
       if (!res.ok) {
         var body = await res.json().catch(function () { return {}; });
         throw new Error(body.detail || "Booking failed");
       }
-
       var data = await res.json();
       showConfirmation(data);
     } catch (err) {
@@ -161,9 +140,6 @@
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Confirmation
-  // ---------------------------------------------------------------------------
   function showConfirmation(event) {
     document.getElementById("stepDate").classList.add("hidden");
     stepSlots.classList.add("hidden");
@@ -172,19 +148,14 @@
 
     confirmDetails.innerHTML =
       '<div class="detail-row"><span class="detail-label">Date</span><span>' +
-      datePicker.value +
-      "</span></div>" +
+      datePicker.value + "</span></div>" +
       '<div class="detail-row"><span class="detail-label">Time</span><span>' +
-      unixToLocal(event.start_time) +
-      " &ndash; " +
-      unixToLocal(event.end_time) +
+      unixToLocal(event.start_time) + " &ndash; " + unixToLocal(event.end_time) +
       "</span></div>" +
       '<div class="detail-row"><span class="detail-label">Name</span><span>' +
-      escapeHtml(event.customer_name) +
-      "</span></div>" +
+      escapeHtml(event.customer_name) + "</span></div>" +
       '<div class="detail-row"><span class="detail-label">Email</span><span>' +
-      escapeHtml(event.customer_email) +
-      "</span></div>";
+      escapeHtml(event.customer_email) + "</span></div>";
   }
 
   function escapeHtml(str) {
@@ -193,19 +164,13 @@
     return div.innerHTML;
   }
 
-  // ---------------------------------------------------------------------------
-  // Event listeners
-  // ---------------------------------------------------------------------------
   datePicker.addEventListener("change", function () {
-    if (datePicker.value) {
-      fetchSlots(datePicker.value);
-    }
+    if (datePicker.value) fetchSlots(datePicker.value);
   });
 
   bookBtn.addEventListener("click", bookSlot);
 
-  // Auto-load today's slots if owner_id is present
-  if (OWNER_ID && datePicker.value) {
+  if (SLUG && datePicker.value) {
     fetchSlots(datePicker.value);
   }
 })();

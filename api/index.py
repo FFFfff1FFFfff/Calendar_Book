@@ -15,6 +15,7 @@ from app.database import close_pool, init_pool
 from app.routes.auth import router as auth_router
 from app.routes.availability import router as availability_router
 from app.routes.booking import router as booking_router
+from app.routes.owner import router as owner_router
 
 
 @asynccontextmanager
@@ -36,6 +37,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(availability_router)
 app.include_router(booking_router)
+app.include_router(owner_router)
 
 
 @app.get("/api/health")
@@ -43,8 +45,12 @@ async def health():
     return {"status": "ok"}
 
 
-# Serve static files locally. On Vercel the `public/` folder is served by
-# the static build target instead.
 _public_dir = _PROJECT_ROOT / "public"
 if _public_dir.is_dir():
+    from fastapi.responses import FileResponse
+
+    @app.get("/book/{slug:path}")
+    async def serve_booking_page(slug: str):
+        return FileResponse(str(_public_dir / "index.html"))
+
     app.mount("/", StaticFiles(directory=str(_public_dir), html=True), name="static")

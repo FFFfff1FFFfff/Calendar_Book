@@ -13,43 +13,11 @@
         <div class="icon">&#128197;</div>
         <h1>Connect Your Calendar</h1>
         <p class="subtitle">Link your Google Calendar so customers can book available time slots.</p>
-
-        <div id="statusMsg" class="status-msg hidden"></div>
-
-        <button class="btn btn-primary" id="connectBtn">
+        <button class="btn btn-primary" onclick="window.location.href='/auth/google'">
           Connect Google Calendar
         </button>
       </div>
     </div>
   </div>
-
-  <script>
-    (function () {
-      var params = new URLSearchParams(window.location.search);
-      var ownerId = params.get("owner_id") || "";
-      var status = params.get("status") || "";
-      var statusMsg = document.getElementById("statusMsg");
-      var connectBtn = document.getElementById("connectBtn");
-
-      if (status === "success") {
-        statusMsg.textContent = "Google Calendar connected successfully!";
-        statusMsg.className = "status-msg success";
-        connectBtn.textContent = "Reconnect";
-      } else if (status === "error") {
-        statusMsg.textContent = "Connection failed. Please try again.";
-        statusMsg.className = "status-msg error";
-      }
-
-      if (!ownerId) {
-        connectBtn.disabled = true;
-        statusMsg.textContent = "Missing owner_id parameter in URL.";
-        statusMsg.className = "status-msg error";
-      }
-
-      connectBtn.addEventListener("click", function () {
-        window.location.href = "/auth/google?owner_id=" + encodeURIComponent(ownerId);
-      });
-    })();
-  </script>
 </body>
 </html>

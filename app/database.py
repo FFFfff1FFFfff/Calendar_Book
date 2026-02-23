@@ -6,12 +6,18 @@ SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS calendar_connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id UUID NOT NULL,
+    slug TEXT NOT NULL,
     nylas_grant_id TEXT NOT NULL,
     google_email TEXT,
+    timezone TEXT DEFAULT 'UTC',
+    business_hours_start TEXT DEFAULT '09:00',
+    business_hours_end TEXT DEFAULT '17:00',
+    slot_duration_minutes INT DEFAULT 30,
     connected_at TIMESTAMPTZ DEFAULT now(),
     is_valid BOOLEAN DEFAULT true
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_owner ON calendar_connections(owner_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_slug ON calendar_connections(slug);
 """
 
 

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup Your Booking Page</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="confirmation">
+        <div class="check-icon">&#10003;</div>
+        <h2>Calendar Connected</h2>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your Booking Link</h2>
+      <div class="form-group">
+        <input type="text" id="bookingLink" readonly />
+      </div>
+      <button class="btn btn-primary" id="copyBtn" style="margin-bottom:0">Copy Link</button>
+    </div>
+
+    <div class="card">
+      <h2>Business Hours</h2>
+      <div class="form-group">
+        <label for="tz">Timezone</label>
+        <select id="tz" style="width:100%;padding:0.625rem 0.75rem;font-size:0.9375rem;border:1px solid var(--color-border);border-radius:8px;background:var(--color-surface);">
+          <option value="UTC">UTC</option>
+          <option value="America/New_York">US Eastern</option>
+          <option value="America/Chicago">US Central</option>
+          <option value="America/Denver">US Mountain</option>
+          <option value="America/Los_Angeles">US Pacific</option>
+          <option value="Europe/London">London</option>
+          <option value="Europe/Berlin">Berlin</option>
+          <option value="Asia/Shanghai">Shanghai</option>
+          <option value="Asia/Tokyo">Tokyo</option>
+          <option value="Australia/Sydney">Sydney</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:0.75rem">
+        <div class="form-group" style="flex:1">
+          <label for="bhStart">Start</label>
+          <input type="time" id="bhStart" value="09:00" />
+        </div>
+        <div class="form-group" style="flex:1">
+          <label for="bhEnd">End</label>
+          <input type="time" id="bhEnd" value="17:00" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="slotDur">Slot Duration (minutes)</label>
+        <select id="slotDur" style="width:100%;padding:0.625rem 0.75rem;font-size:0.9375rem;border:1px solid var(--color-border);border-radius:8px;background:var(--color-surface);">
+          <option value="15">15 min</option>
+          <option value="30" selected>30 min</option>
+          <option value="45">45 min</option>
+          <option value="60">60 min</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="saveBtn">Save Settings</button>
+      <div id="statusMsg" class="status-msg success hidden" style="margin-top:0.75rem"></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var slug = new URLSearchParams(window.location.search).get("slug") || "";
+    if (!slug) { document.body.innerHTML = "<p>Missing slug.</p>"; return; }
+
+    var origin = window.location.origin;
+    var link = origin + "/book/" + slug;
+    document.getElementById("bookingLink").value = link;
+
+    document.getElementById("copyBtn").addEventListener("click", function () {
+      navigator.clipboard.writeText(link).then(function () {
+        var b = document.getElementById("copyBtn");
+        b.textContent = "Copied!";
+        setTimeout(function () { b.textContent = "Copy Link"; }, 1500);
+      });
+    });
+
+    fetch("/api/owner/" + slug).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.timezone) document.getElementById("tz").value = d.timezone;
+      if (d.business_hours_start) document.getElementById("bhStart").value = d.business_hours_start;
+      if (d.business_hours_end) document.getElementById("bhEnd").value = d.business_hours_end;
+      if (d.slot_duration_minutes) document.getElementById("slotDur").value = d.slot_duration_minutes;
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", function () {
+      var msg = document.getElementById("statusMsg");
+      fetch("/api/owner/" + slug + "/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          timezone: document.getElementById("tz").value,
+          business_hours_start: document.getElementById("bhStart").value,
+          business_hours_end: document.getElementById("bhEnd").value,
+          slot_duration_minutes: parseInt(document.getElementById("slotDur").value),
+        }),
+      }).then(function (r) {
+        if (!r.ok) throw new Error("Save failed");
+        msg.textContent = "Settings saved!";
+        msg.className = "status-msg success";
+      }).catch(function (e) {
+        msg.textContent = e.message;
+        msg.className = "status-msg error";
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

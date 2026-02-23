@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid as _uuid
 from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, HTTPException, Query
@@ -16,15 +15,11 @@ router = APIRouter()
 
 @router.get("/api/availability")
 async def availability(
-    owner_id: str = Query(...),
+    slug: str = Query(...),
     date_str: str = Query(..., alias="date"),
 ):
-    if not owner_id:
-        raise HTTPException(status_code=400, detail="owner_id is required")
-    try:
-        _uuid.UUID(owner_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="owner_id must be a valid UUID")
+    if not slug:
+        raise HTTPException(status_code=400, detail="slug is required")
 
     try:
         target_date = date.fromisoformat(date_str)
@@ -34,18 +29,21 @@ async def availability(
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT nylas_grant_id, google_email FROM calendar_connections "
-            "WHERE owner_id = $1::uuid AND is_valid = true",
-            owner_id,
+            "SELECT nylas_grant_id, google_email, timezone, "
+            "business_hours_start, business_hours_end, slot_duration_minutes "
+            "FROM calendar_connections WHERE slug = $1 AND is_valid = true",
+            slug,
         )
     if not row:
         raise HTTPException(status_code=404, detail="No calendar connected for this owner")
 
     grant_id = decrypt(row["nylas_grant_id"])
     email = row["google_email"] or ""
+    tz = row["timezone"] or "UTC"
+    slot_duration = row["slot_duration_minutes"] or settings.slot_duration_minutes
 
-    bh_start = time.fromisoformat(settings.business_hours_start)
-    bh_end = time.fromisoformat(settings.business_hours_end)
+    bh_start = time.fromisoformat(row["business_hours_start"] or settings.business_hours_start)
+    bh_end = time.fromisoformat(row["business_hours_end"] or settings.business_hours_end)
 
     day_start_dt = datetime.combine(target_date, bh_start, tzinfo=timezone.utc)
     day_end_dt = datetime.combine(target_date, bh_end, tzinfo=timezone.utc)
@@ -61,17 +59,13 @@ async def availability(
         raise HTTPException(status_code=502, detail=f"Nylas free/busy call failed: {exc}")
 
     slots = compute_available_slots(
-        busy_blocks,
-        target_date,
-        bh_start,
-        bh_end,
-        settings.slot_duration_minutes,
+        busy_blocks, target_date, bh_start, bh_end, slot_duration,
     )
 
     return {
         "date": date_str,
-        "timezone": "UTC",
-        "slot_duration_minutes": settings.slot_duration_minutes,
+        "timezone": tz,
+        "slot_duration_minutes": slot_duration,
         "slots": slots,
         "owner_email": email,
     }

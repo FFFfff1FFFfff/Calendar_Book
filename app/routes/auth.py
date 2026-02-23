@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+import uuid
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Query
@@ -13,9 +15,14 @@ from app.services.nylas_client import exchange_code_for_grant
 router = APIRouter()
 
 
+def _generate_slug() -> str:
+    return secrets.token_urlsafe(6)[:8].lower()
+
+
 @router.get("/auth/google")
-async def auth_google(owner_id: str = Query(...)):
+async def auth_google():
     """Redirect the owner to Nylas Hosted Auth."""
+    owner_id = str(uuid.uuid4())
     params = urlencode({
         "client_id": settings.nylas_client_id,
         "redirect_uri": settings.nylas_callback_uri,
@@ -33,7 +40,7 @@ async def auth_google_callback(
 ):
     """Handle the OAuth callback from Nylas."""
     if not state:
-        raise HTTPException(status_code=400, detail="Missing state (owner_id)")
+        raise HTTPException(status_code=400, detail="Missing state")
 
     owner_id = state
     try:
@@ -47,13 +54,14 @@ async def auth_google_callback(
         raise HTTPException(status_code=502, detail="No grant_id in Nylas response")
 
     encrypted_grant_id = encrypt(grant_id)
+    slug = _generate_slug()
 
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO calendar_connections (owner_id, nylas_grant_id, google_email)
-            VALUES ($1::uuid, $2, $3)
+            INSERT INTO calendar_connections (owner_id, slug, nylas_grant_id, google_email)
+            VALUES ($1::uuid, $2, $3, $4)
             ON CONFLICT (owner_id) DO UPDATE
                SET nylas_grant_id = EXCLUDED.nylas_grant_id,
                    google_email   = EXCLUDED.google_email,
@@ -61,8 +69,14 @@ async def auth_google_callback(
                    is_valid       = true
             """,
             owner_id,
+            slug,
             encrypted_grant_id,
             email,
         )
+        row = await conn.fetchrow(
+            "SELECT slug FROM calendar_connections WHERE owner_id = $1::uuid",
+            owner_id,
+        )
 
-    return RedirectResponse(f"/connect.html?status=success&owner_id={owner_id}")
+    final_slug = row["slug"] if row else slug
+    return RedirectResponse(f"/setup.html?slug={final_slug}")
