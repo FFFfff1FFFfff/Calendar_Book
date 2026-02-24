@@ -109,6 +109,7 @@ async def create_event(
     end_time: int,
     participant_email: str,
     participant_name: str,
+    timezone: str = "UTC",
 ) -> dict:
     """Create a calendar event via Google Calendar Events API."""
     async with httpx.AsyncClient() as client:
@@ -118,8 +119,8 @@ async def create_event(
             params={"sendUpdates": "all"},
             json={
                 "summary": title,
-                "start": {"dateTime": _epoch_to_rfc3339(start_time)},
-                "end": {"dateTime": _epoch_to_rfc3339(end_time)},
+                "start": {"dateTime": _epoch_to_rfc3339(start_time), "timeZone": timezone},
+                "end": {"dateTime": _epoch_to_rfc3339(end_time), "timeZone": timezone},
                 "attendees": [
                     {"email": participant_email, "displayName": participant_name}
                 ],

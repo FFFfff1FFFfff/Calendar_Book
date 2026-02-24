@@ -63,7 +63,7 @@ async def book(body: BookingRequest, request: Request):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             "SELECT google_access_token, google_refresh_token, token_expires_at, "
-            "google_email FROM calendar_connections "
+            "google_email, timezone FROM calendar_connections "
             "WHERE slug = $1 AND is_valid = true",
             body.slug,
         )
@@ -82,6 +82,7 @@ async def book(body: BookingRequest, request: Request):
             raise HTTPException(status_code=502, detail=f"Token refresh failed: {exc}")
 
     email = row["google_email"] or ""
+    owner_tz = row["timezone"] or "UTC"
 
     try:
         busy = await get_free_busy(access_token, body.start_time, body.end_time, email)
@@ -107,6 +108,7 @@ async def book(body: BookingRequest, request: Request):
             end_time=body.end_time,
             participant_email=body.customer_email,
             participant_name=body.customer_name,
+            timezone=owner_tz,
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Failed to create event: {exc}")
