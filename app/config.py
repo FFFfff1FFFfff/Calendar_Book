@@ -4,10 +4,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str
 
-    nylas_client_id: str
-    nylas_api_key: str
-    nylas_api_uri: str = "https://api.us.nylas.com"
-    nylas_callback_uri: str
+    google_client_id: str
+    google_client_secret: str
+    google_redirect_uri: str
 
     encryption_key: str
 
