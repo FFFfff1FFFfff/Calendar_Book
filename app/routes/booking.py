@@ -8,8 +8,11 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 
 from app.database import get_pool
-from app.encryption import decrypt
-from app.services.nylas_client import create_event, get_free_busy
+from app.services.google_calendar import (
+    create_event,
+    get_free_busy,
+    get_valid_access_token,
+)
 
 router = APIRouter()
 
@@ -59,20 +62,32 @@ async def book(body: BookingRequest, request: Request):
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT nylas_grant_id, google_email FROM calendar_connections "
+            "SELECT google_access_token, google_refresh_token, token_expires_at, "
+            "google_email, timezone FROM calendar_connections "
             "WHERE slug = $1 AND is_valid = true",
             body.slug,
         )
-    if not row:
-        raise HTTPException(status_code=404, detail="No calendar connected for this owner")
+        if not row:
+            raise HTTPException(status_code=404, detail="No calendar connected for this owner")
 
-    grant_id = decrypt(row["nylas_grant_id"])
+        try:
+            access_token = await get_valid_access_token(
+                conn,
+                row["google_access_token"],
+                row["google_refresh_token"],
+                row["token_expires_at"],
+                body.slug,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Token refresh failed: {exc}")
+
     email = row["google_email"] or ""
+    owner_tz = row["timezone"] or "UTC"
 
     try:
-        busy = await get_free_busy(grant_id, body.start_time, body.end_time, email)
+        busy = await get_free_busy(access_token, body.start_time, body.end_time, email)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Nylas free/busy check failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Google free/busy check failed: {exc}")
 
     slot_start = datetime.fromtimestamp(body.start_time, tz=timezone.utc)
     slot_end = datetime.fromtimestamp(body.end_time, tz=timezone.utc)
@@ -87,21 +102,20 @@ async def book(body: BookingRequest, request: Request):
 
     try:
         event_data = await create_event(
-            grant_id=grant_id,
+            access_token=access_token,
             title=title,
             start_time=body.start_time,
             end_time=body.end_time,
             participant_email=body.customer_email,
             participant_name=body.customer_name,
+            timezone=owner_tz,
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Failed to create event: {exc}")
 
-    event = event_data.get("data", event_data)
-
     return BookingResponse(
         status="confirmed",
-        event_id=event.get("id", ""),
+        event_id=event_data.get("id", ""),
         title=title,
         start_time=body.start_time,
         end_time=body.end_time,
