@@ -12,7 +12,7 @@
   "routes": [
     { "src": "/auth/(.*)", "dest": "api/index.py" },
     { "src": "/api/(.*)", "dest": "api/index.py" },
-    { "src": "/book/(.*)", "dest": "/index.html" },
+    { "src": "/book/(.*)", "dest": "api/index.py" },
     { "src": "/(.*)", "dest": "public/$1" }
   ]
 }
