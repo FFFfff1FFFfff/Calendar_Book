@@ -61,14 +61,21 @@ async def auth_google_callback(
     if not access_token or not refresh_token:
         raise HTTPException(status_code=502, detail="Missing tokens in Google response")
 
-    # Fetch the user's email from the token info
     import httpx
+    headers = {"Authorization": f"Bearer {access_token}"}
     async with httpx.AsyncClient() as client:
+        # Fetch user email
         resp = await client.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"},
+            "https://www.googleapis.com/oauth2/v2/userinfo", headers=headers,
         )
         email = resp.json().get("email", "") if resp.status_code == 200 else ""
+
+        # Fetch calendar timezone
+        resp = await client.get(
+            "https://www.googleapis.com/calendar/v3/users/me/settings/timezone",
+            headers=headers,
+        )
+        cal_tz = resp.json().get("value", "UTC") if resp.status_code == 200 else "UTC"
 
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
     slug = _generate_slug()
@@ -79,13 +86,14 @@ async def auth_google_callback(
             """
             INSERT INTO calendar_connections
                 (owner_id, slug, google_access_token, google_refresh_token,
-                 token_expires_at, google_email)
-            VALUES ($1::uuid, $2, $3, $4, $5, $6)
+                 token_expires_at, google_email, timezone)
+            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (owner_id) DO UPDATE
                SET google_access_token  = EXCLUDED.google_access_token,
                    google_refresh_token  = EXCLUDED.google_refresh_token,
                    token_expires_at      = EXCLUDED.token_expires_at,
                    google_email          = EXCLUDED.google_email,
+                   timezone              = EXCLUDED.timezone,
                    connected_at          = now(),
                    is_valid              = true
             """,
@@ -95,6 +103,7 @@ async def auth_google_callback(
             encrypt(refresh_token),
             expires_at,
             email,
+            cal_tz,
         )
         row = await conn.fetchrow(
             "SELECT slug FROM calendar_connections WHERE owner_id = $1::uuid",

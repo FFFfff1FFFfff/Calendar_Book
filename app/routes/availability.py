@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -55,8 +56,9 @@ async def availability(
     bh_start = time.fromisoformat(row["business_hours_start"] or settings.business_hours_start)
     bh_end = time.fromisoformat(row["business_hours_end"] or settings.business_hours_end)
 
-    day_start_dt = datetime.combine(target_date, bh_start, tzinfo=timezone.utc)
-    day_end_dt = datetime.combine(target_date, bh_end, tzinfo=timezone.utc)
+    owner_tz = ZoneInfo(tz)
+    day_start_dt = datetime.combine(target_date, bh_start, tzinfo=owner_tz)
+    day_end_dt = datetime.combine(target_date, bh_end, tzinfo=owner_tz)
 
     try:
         busy_blocks = await get_free_busy(
@@ -69,7 +71,7 @@ async def availability(
         raise HTTPException(status_code=502, detail=f"Google free/busy call failed: {exc}")
 
     slots = compute_available_slots(
-        busy_blocks, target_date, bh_start, bh_end, slot_duration,
+        busy_blocks, target_date, bh_start, bh_end, slot_duration, owner_tz,
     )
 
     return {
