@@ -51,8 +51,10 @@ async def get_pool() -> asyncpg.Pool:
 
 async def init_pool(dsn: str) -> None:
     global _pool
-    _pool = await asyncpg.create_pool(dsn, min_size=0, max_size=5)
-    async with _pool.acquire() as conn:
+    _pool = await asyncpg.create_pool(
+        dsn, min_size=0, max_size=5, timeout=30, command_timeout=30,
+    )
+    async with _pool.acquire(timeout=30) as conn:
         await conn.execute(MIGRATE_SQL)
         await conn.execute(SCHEMA_SQL)
 
