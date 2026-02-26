@@ -14,7 +14,11 @@
   <h1>My Business Website</h1>
   <p>This simulates a merchant's website with an embedded booking calendar.</p>
 
-  <div data-calbook-slug="abc12345"></div>
+  <div id="calbook"></div>
+  <script>
+    var slug = new URLSearchParams(location.search).get("slug") || "abc12345";
+    document.getElementById("calbook").setAttribute("data-calbook-slug", slug);
+  </script>
   <script src="/embed.js"></script>
 
   <script>
