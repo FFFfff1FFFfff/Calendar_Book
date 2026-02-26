@@ -146,6 +146,10 @@
     stepForm.classList.add("hidden");
     stepConfirm.classList.remove("hidden");
 
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "calbook:booked", detail: event }, "*");
+    }
+
     confirmDetails.innerHTML =
       '<div class="detail-row"><span class="detail-label">Date</span><span>' +
       datePicker.value + "</span></div>" +

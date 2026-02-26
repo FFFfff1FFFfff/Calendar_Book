@@ -54,6 +54,7 @@ _BOOKING_HTML = """<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Book an Appointment</title>
   <link rel="stylesheet" href="/styles.css">
+  <script>if(new URLSearchParams(location.search).has("embed"))document.documentElement.className="embed";</script>
 </head>
 <body>
   <div class="container">

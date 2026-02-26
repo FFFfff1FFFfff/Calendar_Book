@@ -248,6 +248,15 @@ input:focus {
   color: var(--color-text-muted);
 }
 
+/* Embed mode */
+html.embed body {
+  background: transparent;
+  min-height: auto;
+}
+html.embed .container {
+  padding: 0;
+}
+
 /* Hidden utility */
 .hidden {
   display: none !important;

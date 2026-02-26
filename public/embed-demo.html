@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embed Demo - Merchant Site</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { margin-bottom: 0.5rem; }
+    p { color: #555; margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>My Business Website</h1>
+  <p>This simulates a merchant's website with an embedded booking calendar.</p>
+
+  <div data-calbook-slug="abc12345"></div>
+  <script src="/embed.js"></script>
+
+  <script>
+    window.addEventListener("calbook:booked", function (e) {
+      console.log("Booking confirmed:", e.detail);
+    });
+  </script>
+</body>
+</html>
