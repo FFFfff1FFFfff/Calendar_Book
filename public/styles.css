@@ -262,6 +262,18 @@ html.embed .container {
   display: none !important;
 }
 
+/* Brand */
+.brand {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.5rem;
+}
+.brand-sub {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
 /* Connect page */
 .connect-wrapper {
   text-align: center;
