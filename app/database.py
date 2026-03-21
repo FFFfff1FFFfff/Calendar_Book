@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS calendar_connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id UUID NOT NULL,
     slug TEXT NOT NULL,
-    nylas_grant_id TEXT NOT NULL,
+    google_access_token TEXT NOT NULL,
+    google_refresh_token TEXT NOT NULL,
+    token_expires_at TIMESTAMPTZ,
     google_email TEXT,
     timezone TEXT DEFAULT 'UTC',
     business_hours_start TEXT DEFAULT '09:00',
@@ -18,6 +20,34 @@ CREATE TABLE IF NOT EXISTS calendar_connections (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_owner ON calendar_connections(owner_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_slug ON calendar_connections(slug);
+
+CREATE TABLE IF NOT EXISTS bookings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug TEXT NOT NULL,
+    start_time BIGINT NOT NULL,
+    end_time BIGINT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_bookings_slug_time ON bookings(slug, start_time, end_time);
+"""
+
+MIGRATE_SQL = """
+DO $$
+BEGIN
+    -- Migrate from Nylas schema to direct Google tokens
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'calendar_connections' AND column_name = 'nylas_grant_id'
+    ) THEN
+        ALTER TABLE calendar_connections ADD COLUMN IF NOT EXISTS google_access_token TEXT;
+        ALTER TABLE calendar_connections ADD COLUMN IF NOT EXISTS google_refresh_token TEXT;
+        ALTER TABLE calendar_connections ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMPTZ;
+        ALTER TABLE calendar_connections DROP COLUMN IF EXISTS nylas_grant_id;
+        -- Invalidate old connections (they need to re-auth)
+        UPDATE calendar_connections SET is_valid = false
+            WHERE google_refresh_token IS NULL;
+    END IF;
+END $$;
 """
 
 
@@ -30,8 +60,11 @@ async def get_pool() -> asyncpg.Pool:
 
 async def init_pool(dsn: str) -> None:
     global _pool
-    _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5)
-    async with _pool.acquire() as conn:
+    _pool = await asyncpg.create_pool(
+        dsn, min_size=0, max_size=5, timeout=30, command_timeout=30,
+    )
+    async with _pool.acquire(timeout=30) as conn:
+        await conn.execute(MIGRATE_SQL)
         await conn.execute(SCHEMA_SQL)
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 
 
 def compute_available_slots(
@@ -9,6 +9,7 @@ def compute_available_slots(
     business_start: time,
     business_end: time,
     slot_duration_minutes: int,
+    tz: tzinfo = timezone.utc,
 ) -> list[dict]:
     """Return available booking slots for *target_date*.
 
@@ -19,13 +20,14 @@ def compute_available_slots(
         business_start: daily opening time (e.g. 09:00).
         business_end: daily closing time (e.g. 17:00).
         slot_duration_minutes: length of each slot in minutes.
+        tz: timezone for interpreting business hours.
 
     Returns:
         list of ``{"start_time": <unix>, "end_time": <unix>}`` dicts
         representing each free slot.
     """
-    day_start = datetime.combine(target_date, business_start, tzinfo=timezone.utc)
-    day_end = datetime.combine(target_date, business_end, tzinfo=timezone.utc)
+    day_start = datetime.combine(target_date, business_start, tzinfo=tz)
+    day_end = datetime.combine(target_date, business_end, tzinfo=tz)
     slot_delta = timedelta(minutes=slot_duration_minutes)
 
     busy_intervals: list[tuple[datetime, datetime]] = []

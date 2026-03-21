@@ -1,4 +1,4 @@
-# Google Calendar Booking — Phase 1 (Nylas)
+# Google Calendar Booking
 
 A booking system that lets business owners connect their Google Calendar and allows customers to view availability and book time slots directly.
 
@@ -6,7 +6,7 @@ A booking system that lets business owners connect their Google Calendar and all
 
 - **Backend:** Python / FastAPI (Vercel serverless)
 - **Database:** PostgreSQL (Neon)
-- **Calendar API:** Nylas v3
+- **Calendar API:** Google Calendar API (direct)
 - **Frontend:** Vanilla HTML / JS / CSS
 
 ## Quick Start
@@ -27,12 +27,10 @@ uvicorn api.index:app --reload
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | Neon PostgreSQL connection string |
-| `NYLAS_CLIENT_ID` | Nylas application client ID |
-| `NYLAS_CLIENT_SECRET` | Nylas application client secret |
-| `NYLAS_API_KEY` | Nylas API key for server-side calls |
-| `NYLAS_API_URI` | Nylas API base URL |
-| `NYLAS_CALLBACK_URI` | OAuth callback URL |
-| `ENCRYPTION_KEY` | Fernet key for encrypting grant IDs at rest |
+| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 client secret |
+| `GOOGLE_REDIRECT_URI` | OAuth callback URL |
+| `ENCRYPTION_KEY` | Fernet key for encrypting tokens at rest |
 | `BUSINESS_HOURS_START` | Daily start time, e.g. `09:00` |
 | `BUSINESS_HOURS_END` | Daily end time, e.g. `17:00` |
 | `SLOT_DURATION_MINUTES` | Slot length in minutes, default `30` |
@@ -41,8 +39,8 @@ uvicorn api.index:app --reload
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/auth/google?owner_id=UUID` | Redirect owner to Nylas OAuth |
-| `GET` | `/auth/google/callback` | OAuth callback from Nylas |
+| `GET` | `/auth/google` | Redirect owner to Google OAuth |
+| `GET` | `/auth/google/callback` | OAuth callback from Google |
 | `GET` | `/api/availability?owner_id=UUID&date=YYYY-MM-DD` | Get available time slots |
 | `POST` | `/api/book` | Book a time slot |
 
